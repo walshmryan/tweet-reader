@@ -1,62 +1,126 @@
 '''
 tweet-reader.py
+Author: Ryan Walsh
+Version: .11
 
-Version: .1
+A script using tweepy.py that analyzes tweets of a given twitter account
+and identifies most commonly used words
 
 '''
 import tweepy
 
-auth = tweepy.OAuthHandler('---', '---')
-auth.set_access_token('---', '---')
-
-api = tweepy.API(auth)
-
-twitterID = input('Enter the person you are looking for\n')
-
-topWords = input('Enter the words you are searching for (with spaces inbetween each)\n').lower()
-
-
+# number of tweets script searches through
 numTweets = 500
-#public_tweets = api.user_timeline(id = 'realDonaldTrump', count = numTweets)
 
 
+'''
+Gets the auth and access codes for Twitter API
+
+codes.txt is organized as follows:
+	-consumer key
+	-consumer secret
+	-access token
+	-access secret
+
+'''
+def getCodes():
+
+	file = open('codes.txt')
+
+	return (file.readline().replace('\n', ''), file.readline().replace('\n', ''), file.readline().replace('\n', ''), file.readline().replace('\n', ''))
+	
+
+'''
+Replaces all punctuation to help better hash words
+'''
 def process_tweet(status):
 
 	return status.text.replace('.', ' ').replace(',', ' ').replace('!', ' ').replace('"', '').replace('-', ' ').lower().split()
 
 
-Hash = {}
+'''
+Adds all words to a dictionary, incrementing their values for every unique appearance
+'''
+def hashTweets(api, twitterID):
 
-# hash all tweets
-for status in tweepy.Cursor(api.user_timeline, id='realDonaldTrump').items(numTweets):
+	if(twitterID == ''):
+		twitterID = 'realDonaldTrump'
 
-	for word in process_tweet(status):
+	print('\nSearching tweets of ' + twitterID + '...')
+	dic = {}
 
-		# add all words to hash count
-		if(word not in Hash):
-			Hash[word] = 1
-		else:
-			Hash[word]+= 1
+	# for each tweet in timeline
+	for status in tweepy.Cursor(api.user_timeline, id=twitterID).items(numTweets):
+
+		# look at each word and add/increment value in dictionary
+		for word in process_tweet(status):
+
+			# add all words to dic count
+			if(word not in dic):
+				dic[word] = 1
+			else:
+				dic[word]+= 1
+
+	return dic
 
 
-print('\nSearched Words of last 200 tweets:')
+'''
+Reads through dictionary and presents the top words and their rarity
+'''
+def printTopWords(dic, topWords):
 
-for topWord in topWords.split():
+	print('\nSearched Words of last ' + str(numTweets) + ' tweets:')
 
-	value = Hash[topWord]
+	# prints given searched words and finds rarity of them
+	for topWord in topWords.split():
 
-	print('    ' + topWord + ': ' + str(value) + ', %' + str(value * 100 / numTweets) + ' of tweets')
+		# tries to find top word in dictionary
+		try:
+			value = dic[topWord]
+			print('    -' + topWord + ': ' + str(value) + ', %' + str(value * 100 / numTweets) + ' of tweets')
+
+		# if word is not in it
+		except:
+			print('    -Top word \'' + topWord + '\' not found in tweets')
+
+	if(topWords == ''):
+		print('    -No words searched!')
 
 
 
-print('\nOther Top Words:')
+	print('\nOther Top Words:')
 
-count = 0
+	count = 0
 
-for w in sorted(Hash, key=Hash.get, reverse=True):
+	# prints 10 other non-searched words
+	for w in sorted(dic, key=dic.get, reverse=True):
 
-	if count > 10: break
+		if count > 10: break
 
-	if w not in ('the', 'a', 'it', 'to', 'so', 'be', 'it', 'i', 'is', 'of', 'in', 'and', 'https://t', 'on', 'for', 'was', 'with'):
-		print('    ' + w + ': ' + (str)(Hash[w]))
-		count+= 1
+		# ignores very common words
+		if w not in ('the', 'a', 'it', 'to', 'so', 'be', 'it', 'i', 'is', 'of', 'in', 'and', 'https://t', 'on', 'for', 'was', 'with'):
+			print('    -' + w + ': ' + (str)(dic[w]))
+			count+= 1
+
+
+if __name__ == "__main__":
+
+	codes = getCodes()
+
+	auth = tweepy.OAuthHandler(codes[0], codes[1])
+	auth.set_access_token(codes[2], codes[3])
+
+	api = tweepy.API(auth)
+
+	# while used continues to want to search names
+	while(True):
+		twitterID = input('Enter the person you are looking for (\'q\'/\'quit\' to end)\n')
+
+		if(twitterID == 'quit' or twitterID == 'q'):
+			break
+
+		topWords = input('Enter the words you are searching for (with spaces inbetween each)\n').lower()
+
+		res = hashTweets(api, twitterID)
+
+		printTopWords(res, topWords)
